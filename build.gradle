@@ -1,0 +1,41 @@
+// Apply the java plugin to add support for Java
+apply plugin: 'java'
+apply plugin: 'application'
+
+mainClassName = 'org.piax.samples.anycast.shell.Shell'
+
+def defaultEncoding = 'UTF-8'
+[compileJava, compileTestJava]*.options*.encoding = defaultEncoding
+
+// In this section you declare where to find the dependencies of your project
+repositories {
+    // Use 'jcenter' for resolving your dependencies.
+    // You can declare any Maven/Ivy/file repository here.
+    jcenter()
+}
+
+// In this section you declare the dependencies for your production and test code
+dependencies {
+    // The production code uses the SLF4J logging API at compile time
+    compile 'org.slf4j:slf4j-api:1.7.2'
+    compile fileTree(dir: 'lib', include: ['piax-agent-3.0.0.jar', 'piax-gtrans-3.0.0.jar'])
+
+    testCompile 'junit:junit:4.12'
+
+    runtime 'org.grlea.log:simple-log:2.0.1'
+    runtime 'asm:asm:3.2'
+    runtime fileTree(dir: 'lib', include: 'slf4j-grlea-simplelog.jar')
+}
+
+// Build jar without shell
+task jarAnycast(type: Jar) {
+    baseName = 'anycast'
+    from sourceSets.main.output
+    exclude('org/piax/samples/anycast/shell/**')
+    exclude('org/piax/samples/util/*')
+}
+
+task copyRuntimeLibs(type: Copy){
+  from configurations.runtime
+  into 'build/lib'
+}
