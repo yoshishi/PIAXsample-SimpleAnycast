@@ -87,6 +87,15 @@ public class SimpleAnycastHandle<T extends Serializable, R extends Serializable>
     }
 
     /**
+     * ハンドルに対応する Overlay key を取得する
+     * {@link SimpleAnycast#unregister(SimpleAnycastHandle)} により呼び出される
+     * @return
+     */
+    SimpleAnycast.LTKey getLTKey() {
+        return myKey;
+    }
+
+    /**
      * このハンドルを破棄する
      * dispose 呼び出し後、このハンドルの状態変更が生じるメソッドを呼ぶと IllegalStateException が生じる
      * {@link SimpleAnycast#unregister(SimpleAnycastHandle)} により呼び出される

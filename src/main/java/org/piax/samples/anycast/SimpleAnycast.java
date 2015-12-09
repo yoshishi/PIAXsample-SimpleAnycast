@@ -54,9 +54,9 @@ public class SimpleAnycast<T extends Serializable, R extends Serializable> {
     final MSkipGraph<Destination, ComparableKey<?>> sg;
 
     /**
-     * Group ID と対応するハンドラの Map
+     * LTKey と対応するハンドラの Map
      */
-    protected final ConcurrentHashMap<String, SimpleAnycastHandle<T, R>> am = new ConcurrentHashMap<>();
+    protected final ConcurrentHashMap<LTKey, SimpleAnycastHandle<T, R>> am = new ConcurrentHashMap<>();
 
     /**
      * FutureQueue タイムアウト時間
@@ -304,13 +304,16 @@ public class SimpleAnycast<T extends Serializable, R extends Serializable> {
             throw new IllegalArgumentException("groupid should not be null or empty");
 
         synchronized (am) {
-            if (am.containsKey(groupid))
-                throw new IllegalStateException("groupid is already registered");
-
             LTKey handlekey = newRandomKey(groupid);
+
+            // 重複のないキーを選ぶ
+            while (am.containsKey(handlekey)) {
+                handlekey = newRandomKey(groupid);
+            }
+
             SimpleAnycastHandle<T, R> result = new SimpleAnycastHandle<T, R>(this, handlekey, listener);
             result.setDiscoverable();   // may fail
-            am.put(groupid, result);
+            am.put(handlekey, result);
             return result;
         }
     }
@@ -325,10 +328,10 @@ public class SimpleAnycast<T extends Serializable, R extends Serializable> {
             throw new IllegalArgumentException("h should not be null");
 
         synchronized (am) {
-            if (am.containsValue(h)) {
+            if (am.containsKey(h.getLTKey())) {
                 h.setUndiscoverable();
                 h.dispose();
-                am.remove(h.getGroupId());
+                am.remove(h.getLTKey());
             }
         }
     }
@@ -459,20 +462,21 @@ public class SimpleAnycast<T extends Serializable, R extends Serializable> {
                     LTKey matchedkey = (LTKey) c;
                     logger.debug("onReceiveRequest discover matched:{}", matchedkey);
 
-                    String groupid = matchedkey.getPrefix();
-                    SimpleAnycastHandle<T, R> h = am.get(groupid);
+                    SimpleAnycastHandle<T, R> h = am.get(matchedkey);
                     if (h != null) {
                         try {
                             SimpleAnycastListener<T, R> listener = h.getListener();
-                            if (listener != null)
+                            if (listener != null) {
+                                String groupid = matchedkey.getPrefix();
                                 info = listener.onReceive(groupid, (T) query.value);
+                            }
                         } catch (Exception e) {
                             logger.error("", e);
                         }
                     } else {
                         // SkipGraph 上にキーがあるが、対応する Handle がない状態
                         // 通常は生じない
-                        logger.warn("No handled key : {}", groupid);
+                        logger.warn("No handled key : {}", matchedkey);
                     }
                 }
                 logger.debug("onReceiveRequest discover result :{}", info.toString());

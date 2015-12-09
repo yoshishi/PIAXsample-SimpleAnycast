@@ -18,6 +18,7 @@ import org.piax.samples.anycast.SimpleAnycastHandle;
 import org.piax.samples.anycast.SimpleAnycastListener;
 import org.piax.samples.util.Util;
 import org.piax.util.LocalInetAddrs;
+import org.piax.util.MersenneTwister;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,6 +52,8 @@ public class Shell {
 
     private AgentPeer peer = null;
     private SimpleAnycast<String, String> ha = null;
+
+    private static final MersenneTwister prnd = new MersenneTwister();
 
     public static void main(String[] args) {
         final Shell ss = new Shell();
@@ -103,22 +106,29 @@ public class Shell {
                     } else if ("reg".equals(cmds[0])) {
                         // register
                         String gid = cmds[1];
+                        String pre_handle = gid + prnd.nextInt(1000);
+                        while (handles.containsKey(pre_handle)) {
+                            pre_handle = gid + prnd.nextInt(1000);
+                        }
+                        final String shellhandle = pre_handle;
+
                         SimpleAnycastHandle<String, String> h = ss.ha.register(gid, new SimpleAnycastListener<String, String>() {
                             @Override
                             public String onReceive(String groupid, String obj) {
-                                String msg = "Received anycast for " + groupid + ", " + obj;
+                                String msg = "Received anycast for " + groupid + ". Parameter is " + obj + ". " + "Handle is " + shellhandle + ".";
                                 System.out.println(msg);
                                 return ss.peer.getPeerId() + ":" + msg;
                             }
                         });
-                        handles.put(gid, h);
+                        handles.put(shellhandle, h);
                         System.out.println("registered for " + gid);
+                        System.out.println("handle is " + shellhandle);
                     } else if ("ureg".equals(cmds[0])) {
                         // unregister
-                        String gid = cmds[1];
-                        SimpleAnycastHandle<String, String> h = handles.get(gid);
+                        String shellhandle = cmds[1];
+                        SimpleAnycastHandle<String, String> h = handles.get(shellhandle);
                         ss.ha.unregister(h);
-                        System.out.println("unregistered for " + gid);
+                        System.out.println("unregistered for " + shellhandle);
                     } else if ("cast".equals(cmds[0])) {
                         // anycast
                         String gid = cmds[1];
@@ -128,22 +138,22 @@ public class Shell {
                         System.out.println("Result: " + result);
                     } else if ("disable".equals(cmds[0])) {
                         // undiscoverable
-                        String gid = cmds[1];
-                        SimpleAnycastHandle<String, String> h = handles.get(gid);
+                        String shellhandle = cmds[1];
+                        SimpleAnycastHandle<String, String> h = handles.get(shellhandle);
                         h.setUndiscoverable();
-                        System.out.println("disable receiving for " + gid);
+                        System.out.println("disable receiving for " + shellhandle);
                     } else if ("enable".equals(cmds[0])) {
                         // discoverable
-                        String gid = cmds[1];
-                        SimpleAnycastHandle<String, String> h = handles.get(gid);
+                        String shellhandle = cmds[1];
+                        SimpleAnycastHandle<String, String> h = handles.get(shellhandle);
                         h.setDiscoverable();
-                        System.out.println("enable receiving for " + gid);
+                        System.out.println("enable receiving for " + shellhandle);
                     } else {
-                        System.out.println(" reg <groupid> groupid で指定された Anycast グループに入る");
-                        System.out.println(" ureg <groupid> groupid で指定された Anycast グループから離脱する");
-                        System.out.println(" cast <groupid> <msg> groupid で指定された Anycast グループに msg を anycast する");
-                        System.out.println(" disable <groupid> groupid で指定された Anycast グループから一時離脱する");
-                        System.out.println(" enable <groupid> groupid で指定された Anycast グループに復帰する");
+                        System.out.println(" reg <groupid>         groupid で指定された Anycast グループに入り、対応する handle が返される");
+                        System.out.println(" ureg <handle>         handle で指定された Anycast グループから離脱する");
+                        System.out.println(" cast <groupid> <msg>  groupid で指定された Anycast グループに msg を anycast する");
+                        System.out.println(" disable <handle>      handle で指定された Anycast グループから一時離脱する");
+                        System.out.println(" enable <handle>       handle で指定された Anycast グループに復帰する");
                         System.out.println(" bye");
                     }
                 } catch (Exception e) {
